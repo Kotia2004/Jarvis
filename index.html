@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1b2127">
+<title>Jarvis</title>
+<style>
+:root{--bg:#1b2127;--panel:#252d35;--ink:#e8edf1;--dim:#8a97a3;--arc:#7fd4ff;--hot:#ffb347}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:17px/1.45 system-ui,sans-serif;display:flex;flex-direction:column;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+header{padding:18px 20px 6px;display:flex;align-items:baseline;justify-content:space-between}
+h1{margin:0;font-size:26px;letter-spacing:.04em}
+#state{color:var(--dim);font-size:15px}
+#log{flex:1;overflow-y:auto;padding:10px 20px;display:flex;flex-direction:column;gap:10px}
+.m{max-width:85%;padding:10px 14px;border-radius:14px;background:var(--panel);word-wrap:break-word}
+.m.u{align-self:flex-end;background:#33414d}
+.m.j{align-self:flex-start;border-left:3px solid var(--arc)}
+.m a{color:var(--arc)}
+.hint{color:var(--dim);font-size:15px;padding:0 20px}
+#bar{padding:12px 20px 18px;display:flex;gap:10px;align-items:center}
+#mic{flex:0 0 76px;height:76px;border-radius:50%;border:3px solid var(--dim);background:var(--panel);color:var(--ink);font-size:30px}
+#mic.on{border-color:var(--arc);box-shadow:0 0 0 6px rgba(127,212,255,.18)}
+#mic.awake{border-color:var(--hot);box-shadow:0 0 0 8px rgba(255,179,71,.25)}
+#txt{flex:1;height:52px;border-radius:26px;border:1px solid #3a4651;background:var(--panel);color:var(--ink);padding:0 18px;font-size:17px}
+#txt:focus-visible,#mic:focus-visible{outline:2px solid var(--arc);outline-offset:2px}
+</style>
+</head>
+<body>
+<header><h1>Jarvis</h1><span id="state">spento</span></header>
+<div id="log" aria-live="polite"></div>
+<p class="hint" id="hint">Tocca il microfono, poi di' "Jarvis" seguito dal comando.</p>
+<div id="bar">
+  <button id="mic" aria-label="Attiva o disattiva l'ascolto">🎙</button>
+  <input id="txt" placeholder="Oppure scrivi un comando" enterkeyhint="send" autocomplete="off">
+</div>
+<script>
+const $ = id => document.getElementById(id);
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec, on = false, awake = false, speaking = false, awakeTimer, wake;
+
+const NUM = {uno:1,un:1,due:2,tre:3,quattro:4,cinque:5,sei:6,sette:7,otto:8,nove:9,dieci:10,undici:11,dodici:12,quindici:15,venti:20,trenta:30,quaranta:40,quarantacinque:45,cinquanta:50,sessanta:60};
+
+function log(who, text, link){
+  const d = document.createElement('div');
+  d.className = 'm ' + who;
+  d.textContent = text + ' ';
+  if(link){ const a = document.createElement('a'); a.href = link; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Apri'; d.appendChild(a); }
+  $('log').appendChild(d);
+  $('log').scrollTop = $('log').scrollHeight;
+  $('hint').style.display = 'none';
+}
+
+function setState(){
+  $('state').textContent = !on ? 'spento' : awake ? 'ti ascolto…' : 'in attesa di "Jarvis"';
+  $('mic').className = on ? (awake ? 'awake' : 'on') : '';
+}
+
+function say(text, link){
+  log('j', text, link);
+  if(!('speechSynthesis' in window)) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'it-IT';
+  speaking = true;
+  try{ rec && rec.stop(); }catch(e){}
+  const done = () => { speaking = false; if(on) start(); };
+  u.onend = done; u.onerror = done;
+  speechSynthesis.speak(u);
+}
+
+function start(){
+  if(!SR || speaking) return;
+  if(!rec){
+    rec = new SR();
+    rec.lang = 'it-IT';
+    rec.continuous = true;
+    rec.interimResults = false;
+    rec.onresult = e => {
+      for(let i = e.resultIndex; i < e.results.length; i++){
+        if(e.results[i].isFinal) heard(e.results[i][0].transcript.trim());
+      }
+    };
+    rec.onend = () => { if(on && !speaking) setTimeout(start, 300); };
+    rec.onerror = e => {
+      if(e.error === 'not-allowed' || e.error === 'service-not-allowed'){
+        on = false; setState();
+        say('Il microfono è bloccato. In Chrome tocca il lucchetto accanto all\'indirizzo e consenti il microfono.');
+      }
+    };
+  }
+  try{ rec.start(); }catch(e){}
+}
+
+async function toggle(){
+  if(!SR){ say('Questo browser non supporta il riconoscimento vocale. Usa Chrome.'); return; }
+  on = !on;
+  if(on){
+    try{ wake = await navigator.wakeLock.request('screen'); }catch(e){}
+    start();
+  } else {
+    try{ rec.stop(); }catch(e){}
+    try{ wake && wake.release(); }catch(e){}
+    speechSynthesis.cancel();
+    awake = false;
+  }
+  setState();
+}
+
+const WAKE = /\b(jarvis|giarvis|garvis|jarvi|darvis|jarves)\b/;
+
+function heard(text){
+  const t = text.toLowerCase();
+  if(!awake){
+    const m = t.match(WAKE);
+    if(!m) return;
+    const cmd = t.slice(m.index + m[0].length).replace(/^[\s,.:!?]+/, '');
+    log('u', text);
+    if(!cmd){
+      awake = true; setState();
+      clearTimeout(awakeTimer);
+      awakeTimer = setTimeout(() => { awake = false; setState(); }, 8000);
+      say('Dimmi.');
+      return;
+    }
+    run(cmd);
+  } else {
+    awake = false; clearTimeout(awakeTimer); setState();
+    log('u', text);
+    run(t);
+  }
+}
+
+function toNum(s){ s = s.trim(); return /^\d+$/.test(s) ? parseInt(s, 10) : (NUM[s] || NaN); }
+
+function notes(){ try{ return JSON.parse(localStorage.getItem('jarvis_notes') || '[]'); }catch(e){ return []; } }
+function saveNotes(a){ try{ localStorage.setItem('jarvis_notes', JSON.stringify(a)); }catch(e){} }
+
+function run(cmd){
+  let m;
+  cmd = cmd.replace(/[?!.]+$/, '').trim();
+
+  if((m = cmd.match(/timer.*?(\w+)\s*(second\w*|minut\w*|or[ae])/))){
+    const n = toNum(m[1]);
+    if(!isNaN(n)){
+      const unit = m[2].startsWith('s') ? 1 : m[2].startsWith('m') ? 60 : 3600;
+      const label = n + ' ' + m[2];
+      say('Timer di ' + label + ' avviato.');
+      setTimeout(() => say('Il timer di ' + label + ' è finito.'), n * unit * 1000);
+      return;
+    }
+  }
+  if(/che ore|che ora|l'ora/.test(cmd)){
+    say('Sono le ' + new Date().toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'}) + '.');
+    return;
+  }
+  if(/che giorno|che data|data di oggi/.test(cmd)){
+    say('Oggi è ' + new Date().toLocaleDateString('it-IT', {weekday:'long', day:'numeric', month:'long', year:'numeric'}) + '.');
+    return;
+  }
+  if((m = cmd.match(/^(annota|ricorda|segna|scrivi)\s+(.+)/))){
+    const a = notes(); a.push(m[2]); saveNotes(a);
+    say('Annotato: ' + m[2] + '.');
+    return;
+  }
+  if(/(leggi|dimmi).*(appunti|note)/.test(cmd)){
+    const a = notes();
+    say(a.length ? 'Hai ' + a.length + ' appunti. ' + a.map((x, i) => (i + 1) + ': ' + x).join('. ') : 'Non hai appunti.');
+    return;
+  }
+  if(/(cancella|svuota|elimina).*(appunti|note)/.test(cmd)){
+    saveNotes([]);
+    say('Appunti cancellati.');
+    return;
+  }
+  if((m = cmd.match(/quanto fa (.+)/))){
+    let e = m[1].replace(/ per /g, '*').replace(/ x /g, '*').replace(/ più /g, '+').replace(/ meno /g, '-')
+                .replace(/ diviso /g, '/').replace(/,/g, '.').replace(/\s/g, '');
+    if(/^[0-9.+\-*/()]+$/.test(e)){
+      try{
+        const r = Function('"use strict";return (' + e + ')')();
+        if(isFinite(r)){ say('Fa ' + String(Math.round(r * 1000) / 1000).replace('.', ',') + '.'); return; }
+      }catch(err){}
+    }
+  }
+  if((m = cmd.match(/^(cerca|cercami)\s+(.+)/))){
+    say('Ecco la ricerca per ' + m[2] + '. Tocca il link.', 'https://www.google.com/search?q=' + encodeURIComponent(m[2]));
+    return;
+  }
+  if((m = cmd.match(/^apri\s+(.+)/))){
+    const sites = {youtube:'https://m.youtube.com', whatsapp:'https://wa.me', maps:'https://maps.google.com', mappe:'https://maps.google.com', gmail:'https://mail.google.com', google:'https://www.google.com'};
+    const k = Object.keys(sites).find(s => m[1].includes(s));
+    if(k){ say('Ecco ' + k + '. Tocca il link.', sites[k]); return; }
+  }
+  say('Non ho capito. Prova: che ore sono, timer 5 minuti, annota una cosa, leggi gli appunti, quanto fa 6 per 7, cerca qualcosa.');
+}
+
+$('mic').onclick = toggle;
+$('txt').addEventListener('keydown', e => {
+  if(e.key === 'Enter' && e.target.value.trim()){
+    const v = e.target.value.trim(); e.target.value = '';
+    log('u', v);
+    run(v.toLowerCase().replace(WAKE, '').replace(/^[\s,.:!?]+/, ''));
+  }
+});
+setState();
+</script>
+</body>
+</html>
