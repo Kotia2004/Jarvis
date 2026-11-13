@@ -10,9 +10,10 @@
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
 body{background:var(--bg);color:var(--ink);font:17px/1.45 system-ui,sans-serif;display:flex;flex-direction:column;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
-header{padding:18px 20px 6px;display:flex;align-items:baseline;justify-content:space-between}
-h1{margin:0;font-size:26px;letter-spacing:.04em}
+header{padding:18px 20px 6px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+h1{margin:0;font-size:26px;letter-spacing:.04em;flex:1}
 #state{color:var(--dim);font-size:15px}
+#cfg{background:none;border:1px solid #3a4651;border-radius:50%;width:40px;height:40px;color:var(--ink);font-size:20px}
 #log{flex:1;overflow-y:auto;padding:10px 20px;display:flex;flex-direction:column;gap:10px}
 .m{max-width:85%;padding:10px 14px;border-radius:14px;background:var(--panel);word-wrap:break-word}
 .m.u{align-self:flex-end;background:#33414d}
@@ -24,11 +25,11 @@ h1{margin:0;font-size:26px;letter-spacing:.04em}
 #mic.on{border-color:var(--arc);box-shadow:0 0 0 6px rgba(127,212,255,.18)}
 #mic.awake{border-color:var(--hot);box-shadow:0 0 0 8px rgba(255,179,71,.25)}
 #txt{flex:1;height:52px;border-radius:26px;border:1px solid #3a4651;background:var(--panel);color:var(--ink);padding:0 18px;font-size:17px}
-#txt:focus-visible,#mic:focus-visible{outline:2px solid var(--arc);outline-offset:2px}
+#txt:focus-visible,#mic:focus-visible,#cfg:focus-visible{outline:2px solid var(--arc);outline-offset:2px}
 </style>
 </head>
 <body>
-<header><h1>Jarvis</h1><span id="state">spento</span></header>
+<header><h1>Jarvis</h1><span id="state">spento</span><button id="cfg" aria-label="Impostazioni chiave">⚙</button></header>
 <div id="log" aria-live="polite"></div>
 <p class="hint" id="hint">Tocca il microfono, poi di' "Jarvis" seguito dal comando.</p>
 <div id="bar">
@@ -39,6 +40,10 @@ h1{margin:0;font-size:26px;letter-spacing:.04em}
 const $ = id => document.getElementById(id);
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let rec, on = false, awake = false, speaking = false, awakeTimer, wake;
+
+const MODELS = ['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.6-flash'];
+const SYS = 'Sei Jarvis, un assistente vocale personale. Parli con Valentino, che lavora in un\'agenzia di viaggi e ha un\'officina di customizzazione moto e artigianato. Rispondi sempre in italiano, in modo naturale e amichevole, con al massimo due o tre frasi brevi. Niente elenchi, niente asterischi, niente formattazione: la tua risposta viene letta ad alta voce.';
+let hist = [];
 
 const NUM = {uno:1,un:1,due:2,tre:3,quattro:4,cinque:5,sei:6,sette:7,otto:8,nove:9,dieci:10,undici:11,dodici:12,quindici:15,venti:20,trenta:30,quaranta:40,quarantacinque:45,cinquanta:50,sessanta:60};
 
@@ -137,10 +142,48 @@ function toNum(s){ s = s.trim(); return /^\d+$/.test(s) ? parseInt(s, 10) : (NUM
 function notes(){ try{ return JSON.parse(localStorage.getItem('jarvis_notes') || '[]'); }catch(e){ return []; } }
 function saveNotes(a){ try{ localStorage.setItem('jarvis_notes', JSON.stringify(a)); }catch(e){} }
 
+function setKey(){
+  const k = prompt('Incolla qui la chiave Gemini (resta solo su questo telefono):');
+  if(k && k.trim()){
+    try{ localStorage.setItem('jarvis_key', k.trim()); log('j', 'Chiave salvata. Ora posso rispondere a tutto.'); }
+    catch(e){ log('j', 'Non sono riuscito a salvare la chiave.'); }
+  }
+}
+
+async function ask(q){
+  let key = '';
+  try{ key = localStorage.getItem('jarvis_key') || ''; }catch(e){}
+  if(!key){
+    say('Per rispondere a tutto mi serve la chiave Gemini. Tocca l\'ingranaggio in alto e incollala.');
+    return;
+  }
+  hist.push({role:'user', parts:[{text:q}]});
+  hist = hist.slice(-12);
+  for(const model of MODELS){
+    try{
+      const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
+        method:'POST',
+        headers:{'Content-Type':'application/json', 'x-goog-api-key': key},
+        body: JSON.stringify({systemInstruction:{parts:[{text:SYS}]}, contents:hist})
+      });
+      if(r.status === 429){ hist.pop(); say('Ho finito le richieste gratuite per ora. Riprova tra un minuto.'); return; }
+      if(r.status === 400 || r.status === 401 || r.status === 403){ hist.pop(); say('C\'è un problema con la chiave. Tocca l\'ingranaggio e incollala di nuovo.'); return; }
+      if(!r.ok) continue;
+      const j = await r.json();
+      const parts = (j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || [];
+      const t = parts.map(p => p.text || '').join(' ').replace(/[*_#`]/g, '').trim();
+      if(t){ hist.push({role:'model', parts:[{text:t}]}); say(t); return; }
+    }catch(e){}
+  }
+  hist.pop();
+  say('Non riesco a collegarmi a Gemini adesso. Controlla la connessione e riprova.');
+}
+
 function run(cmd){
   let m;
   cmd = cmd.replace(/[?!.]+$/, '').trim();
 
+  if(/(imposta|cambia|inserisci).*chiave/.test(cmd)){ setKey(); return; }
   if((m = cmd.match(/timer.*?(\w+)\s*(second\w*|minut\w*|or[ae])/))){
     const n = toNum(m[1]);
     if(!isNaN(n)){
@@ -193,10 +236,11 @@ function run(cmd){
     const k = Object.keys(sites).find(s => m[1].includes(s));
     if(k){ say('Ecco ' + k + '. Tocca il link.', sites[k]); return; }
   }
-  say('Non ho capito. Prova: che ore sono, timer 5 minuti, annota una cosa, leggi gli appunti, quanto fa 6 per 7, cerca qualcosa.');
+  ask(cmd);
 }
 
 $('mic').onclick = toggle;
+$('cfg').onclick = setKey;
 $('txt').addEventListener('keydown', e => {
   if(e.key === 'Enter' && e.target.value.trim()){
     const v = e.target.value.trim(); e.target.value = '';
