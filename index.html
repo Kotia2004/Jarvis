@@ -7,39 +7,53 @@
 <meta name="theme-color" content="#262624" media="(prefers-color-scheme: dark)">
 <title>Jarvis</title>
 <style>
-:root{--bg:#faf9f5;--panel:#ffffff;--user:#efece4;--ink:#1f1e1d;--dim:#73706a;--line:#e3dfd5;--accent:#c4613a}
-@media (prefers-color-scheme:dark){:root{--bg:#262624;--panel:#30302e;--user:#3a3936;--ink:#f1efe8;--dim:#a19e94;--line:#44423e;--accent:#e08a66}}
+:root{--bg:#faf9f5;--panel:#ffffff;--user:#efece4;--ink:#1f1e1d;--dim:#73706a;--line:#e3dfd5;--accent:#c4613a;--ring:rgba(196,97,58,.45)}
+@media (prefers-color-scheme:dark){:root{--bg:#262624;--panel:#30302e;--user:#3a3936;--ink:#f1efe8;--dim:#a19e94;--line:#44423e;--accent:#e08a66;--ring:rgba(224,138,102,.5)}}
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
 body{background:var(--bg);color:var(--ink);font:17px/1.5 system-ui,sans-serif;display:flex;flex-direction:column;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
 header{display:flex;align-items:center;gap:4px;padding:10px 14px}
 h1{margin:0;flex:1;font:600 22px Georgia,serif;letter-spacing:.01em}
-button{font:inherit;color:inherit;cursor:pointer}
-.ib{width:44px;height:44px;border-radius:50%;border:none;background:none;font-size:21px;display:grid;place-items:center}
-.ib:active{background:var(--user)}
+button{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.ib{width:44px;height:44px;border-radius:50%;border:none;background:none;font-size:21px;display:grid;place-items:center;transition:transform .12s,background .2s}
+.ib:active{transform:scale(.85);background:var(--user)}
+.pop{animation:pop .35s ease-out}
+@keyframes pop{0%{transform:scale(.8)}55%{transform:scale(1.15)}100%{transform:scale(1)}}
 #log{flex:1;overflow-y:auto;width:100%;max-width:720px;margin:0 auto;padding:8px 18px;display:flex;flex-direction:column;gap:18px}
-#empty{margin:auto;text-align:center;font:30px/1.25 Georgia,serif;color:var(--dim);padding:0 20px}
-.m{white-space:pre-wrap;word-wrap:break-word}
+#empty{margin:auto;text-align:center;font:30px/1.25 Georgia,serif;color:var(--dim);padding:0 20px;animation:rise .9s ease-out both}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.m{white-space:pre-wrap;word-wrap:break-word;animation:rise .3s ease-out both}
 .m.u{align-self:flex-end;max-width:85%;background:var(--user);padding:10px 16px;border-radius:20px 20px 6px 20px}
 .m.j{align-self:flex-start;font:18px/1.6 Georgia,serif;padding:2px}
 .m a{color:var(--accent)}
+.think{display:flex;gap:6px;padding:10px 2px}
+.think i{width:9px;height:9px;border-radius:50%;background:var(--accent);animation:dot 1s infinite ease-in-out}
+.think i:nth-child(2){animation-delay:.15s}
+.think i:nth-child(3){animation-delay:.3s}
+@keyframes dot{0%,80%,100%{opacity:.25;transform:scale(.7)}40%{opacity:1;transform:scale(1)}}
 #status{text-align:center;color:var(--dim);font-size:14px;min-height:20px}
-#composer{width:calc(100% - 28px);max-width:720px;margin:4px auto 14px;background:var(--panel);border:1px solid var(--line);border-radius:30px;padding:6px;display:flex;align-items:center;gap:4px;box-shadow:0 2px 10px rgba(0,0,0,.06)}
+#composer{width:calc(100% - 28px);max-width:720px;margin:4px auto 14px;background:var(--panel);border:1px solid var(--line);border-radius:30px;padding:6px;display:flex;align-items:center;gap:4px;box-shadow:0 2px 10px rgba(0,0,0,.06);transition:border-color .2s}
 #composer:focus-within{border-color:var(--accent)}
 #txt{flex:1;min-width:0;height:44px;border:none;background:transparent;color:var(--ink);font-size:17px;padding:0 8px;outline:none}
-#mic.on{background:var(--user);box-shadow:inset 0 0 0 2px var(--accent)}
-#mic.awake{background:var(--accent)}
+#mic.on{background:var(--user);animation:ring 1.6s infinite}
+#mic.awake{background:var(--accent);animation:ring 0.9s infinite}
+@keyframes ring{0%{box-shadow:0 0 0 0 var(--ring)}100%{box-shadow:0 0 0 18px rgba(0,0,0,0)}}
 #send{background:var(--accent);color:#fff;font-size:22px;font-weight:700}
+#toast{position:fixed;left:50%;bottom:96px;transform:translate(-50%,12px);opacity:0;background:var(--ink);color:var(--bg);padding:9px 18px;border-radius:22px;font-size:15px;transition:opacity .25s,transform .25s;pointer-events:none;z-index:10;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translate(-50%,0)}
 .ib:focus-visible,.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 dialog{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:22px;padding:22px;width:min(92vw,440px)}
+dialog[open]{animation:rise .25s ease-out}
 dialog::backdrop{background:rgba(0,0,0,.45)}
 dialog h2{margin:0 0 12px;font:600 20px Georgia,serif}
 dialog label{display:block;margin:14px 0 6px;color:var(--dim);font-size:14px}
 dialog input{width:100%;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);padding:0 12px;font-size:16px}
 pre{margin:0;white-space:pre-wrap;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font:15px/1.4 system-ui,sans-serif;max-height:160px;overflow:auto}
 .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
-.btn{border:1px solid var(--line);background:var(--bg);border-radius:12px;padding:10px 14px;font-size:15px}
+.btn{border:1px solid var(--line);background:var(--bg);border-radius:12px;padding:10px 14px;font-size:15px;transition:transform .12s}
+.btn:active{transform:scale(.93)}
 .btn.main{background:var(--accent);border-color:var(--accent);color:#fff}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
@@ -55,6 +69,7 @@ pre{margin:0;white-space:pre-wrap;background:var(--bg);border:1px solid var(--li
   <input id="txt" placeholder="Scrivi o di' «Jarvis…»" enterkeyhint="send" autocomplete="off">
   <button class="ib" id="send" aria-label="Invia">↑</button>
 </div>
+<div id="toast" role="status"></div>
 
 <dialog id="dlg">
   <h2>Impostazioni</h2>
@@ -81,11 +96,26 @@ const MODELS = ['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.6-flash']
 const NUM = {uno:1,un:1,due:2,tre:3,quattro:4,cinque:5,sei:6,sette:7,otto:8,nove:9,dieci:10,undici:11,dodici:12,quindici:15,venti:20,trenta:30,quaranta:40,quarantacinque:45,cinquanta:50,sessanta:60};
 const WAKE = /\b(jarvis|giarvis|garvis|jarvi|darvis|jarves)\b/i;
 
-let rec, on = false, awake = false, speaking = false, busy = false, awakeTimer, wake;
+let rec, on = false, awake = false, speaking = false, busy = false, awakeTimer, wake, toastTimer, thinkEl;
 let voice = store.get('j_voice', true);
 let facts = store.get('j_facts', []);
 let hist = store.get('j_hist', []);
 let chat = store.get('j_chat', []);
+
+/* ---------- feedback sui tocchi ---------- */
+function toast(t){
+  const el = $('toast');
+  el.textContent = t;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 1800);
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('.ib,.btn');
+  if(!b) return;
+  try{ navigator.vibrate && navigator.vibrate(12); }catch(err){}
+  b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop');
+});
 
 /* ---------- interfaccia ---------- */
 function render(who, text, link){
@@ -101,6 +131,15 @@ function log(who, text, link){
   render(who, text, link);
   chat.push({who, text, link}); chat = chat.slice(-60); store.set('j_chat', chat);
 }
+function showThinking(){
+  const e = $('empty'); if(e) e.remove();
+  thinkEl = document.createElement('div');
+  thinkEl.className = 'm j think';
+  thinkEl.innerHTML = '<i></i><i></i><i></i>';
+  $('log').appendChild(thinkEl);
+  $('log').scrollTop = $('log').scrollHeight;
+}
+function hideThinking(){ if(thinkEl){ thinkEl.remove(); thinkEl = null; } }
 function setState(){
   $('status').textContent = busy ? 'Sto pensando…' : !on ? '' : awake ? 'Ti ascolto…' : 'In ascolto: di\' «Jarvis»';
   $('mic').className = 'ib' + (on ? (awake ? ' awake' : ' on') : '');
@@ -155,11 +194,13 @@ async function toggle(){
   if(on){
     try{ wake = await navigator.wakeLock.request('screen'); }catch(e){}
     start();
+    toast('Ascolto attivato: di\' «Jarvis»');
   } else {
     try{ rec.stop(); }catch(e){}
     try{ wake && wake.release(); }catch(e){}
     speechSynthesis.cancel();
     awake = false;
+    toast('Ascolto spento');
   }
   setState();
 }
@@ -214,7 +255,7 @@ async function ask(q){
   hist.push({role:'user', parts:[{text:q}]});
   hist = hist.slice(-20);
   while(hist.length && hist[0].role !== 'user') hist.shift();
-  busy = true; setState();
+  busy = true; setState(); showThinking();
   try{
     for(const model of MODELS){
       try{
@@ -223,8 +264,8 @@ async function ask(q){
           headers:{'Content-Type':'application/json', 'x-goog-api-key': key},
           body: JSON.stringify({systemInstruction:{parts:[{text:sys()}]}, contents:hist})
         });
-        if(r.status === 429){ hist.pop(); say('Ho finito le richieste gratuite per ora. Riprova tra un minuto.'); return; }
-        if(r.status === 400 || r.status === 401 || r.status === 403){ hist.pop(); say('C\'è un problema con la chiave. Tocca l\'ingranaggio e incollala di nuovo.'); return; }
+        if(r.status === 429){ hist.pop(); hideThinking(); say('Ho finito le richieste gratuite per ora. Riprova tra un minuto.'); return; }
+        if(r.status === 400 || r.status === 401 || r.status === 403){ hist.pop(); hideThinking(); say('C\'è un problema con la chiave. Tocca l\'ingranaggio e incollala di nuovo.'); return; }
         if(!r.ok) continue;
         const j = await r.json();
         const parts = (j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || [];
@@ -234,14 +275,17 @@ async function ask(q){
         if(t){
           hist.push({role:'model', parts:[{text:t}]});
           store.set('j_hist', hist);
+          hideThinking();
           say(t);
           return;
         }
       }catch(e){}
     }
     hist.pop();
+    hideThinking();
     say('Non riesco a collegarmi a Gemini adesso. Controlla la connessione e riprova.');
   } finally {
+    hideThinking();
     busy = false; setState();
     store.set('j_hist', hist);
   }
@@ -270,4 +314,103 @@ function run(cmd){
     say('Sono le ' + new Date().toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'}) + '.');
     return;
   }
-  if(
+  if(/che giorno|che data|data di oggi/i.test(cmd)){
+    say('Oggi è ' + new Date().toLocaleDateString('it-IT', {weekday:'long', day:'numeric', month:'long', year:'numeric'}) + '.');
+    return;
+  }
+  if(/dimentica.*(tutto|memoria)/i.test(cmd)){
+    facts = []; store.set('j_facts', facts); hist = []; store.set('j_hist', hist);
+    say('Fatto, ho dimenticato tutto.');
+    return;
+  }
+  if(/(cosa|che cosa) (ricordi|sai di me)/i.test(cmd)){
+    say(facts.length ? 'Ricordo che: ' + facts.join('. ') + '.' : 'Per ora non ricordo ancora niente di te.');
+    return;
+  }
+  if((m = cmd.match(/^ricorda(?:ti)?(?: che)?\s+(.+)/i))){
+    addFact(m[1]);
+    say('Ok, lo ricorderò.');
+    return;
+  }
+  if((m = cmd.match(/^(annota|segna|scrivi)\s+(.+)/i))){
+    const a = notes(); a.push(m[2]); saveNotes(a);
+    say('Annotato: ' + m[2] + '.');
+    return;
+  }
+  if(/(leggi|dimmi).*(appunti|note)/i.test(cmd)){
+    const a = notes();
+    say(a.length ? 'Hai ' + a.length + ' appunti. ' + a.map((x, i) => (i + 1) + ': ' + x).join('. ') : 'Non hai appunti.');
+    return;
+  }
+  if(/(cancella|svuota|elimina).*(appunti|note)/i.test(cmd)){
+    saveNotes([]);
+    say('Appunti cancellati.');
+    return;
+  }
+  if((m = cmd.match(/quanto fa (.+)/i))){
+    let e = m[1].replace(/ per /gi, '*').replace(/ x /gi, '*').replace(/ più /gi, '+').replace(/ meno /gi, '-')
+                .replace(/ diviso /gi, '/').replace(/,/g, '.').replace(/\s/g, '');
+    if(/^[0-9.+\-*/()]+$/.test(e)){
+      try{
+        const r = Function('"use strict";return (' + e + ')')();
+        if(isFinite(r)){ say('Fa ' + String(Math.round(r * 1000) / 1000).replace('.', ',') + '.'); return; }
+      }catch(err){}
+    }
+  }
+  if((m = cmd.match(/^(cerca|cercami)\s+(.+)/i))){
+    say('Ecco la ricerca per ' + m[2] + '. Tocca il link.', 'https://www.google.com/search?q=' + encodeURIComponent(m[2]));
+    return;
+  }
+  if((m = cmd.match(/^apri\s+(.+)/i))){
+    const sites = {youtube:'https://m.youtube.com', whatsapp:'https://wa.me', maps:'https://maps.google.com', mappe:'https://maps.google.com', gmail:'https://mail.google.com', google:'https://www.google.com'};
+    const low = m[1].toLowerCase();
+    const k = Object.keys(sites).find(s => low.includes(s));
+    if(k){ say('Ecco ' + k + '. Tocca il link.', sites[k]); return; }
+  }
+  ask(cmd);
+}
+
+/* ---------- impostazioni ---------- */
+function openCfg(){
+  let has = false;
+  try{ has = !!localStorage.getItem('jarvis_key'); }catch(e){}
+  $('key').value = '';
+  $('key').placeholder = has ? 'Chiave già salvata' : 'Incolla qui la chiave';
+  $('facts').textContent = facts.length ? facts.map(f => '• ' + f).join('\n') : 'Ancora niente.';
+  $('dlg').showModal();
+}
+$('cfg').onclick = openCfg;
+$('close').onclick = () => $('dlg').close();
+$('saveKey').onclick = () => {
+  const k = $('key').value.trim();
+  if(k){ try{ localStorage.setItem('jarvis_key', k); }catch(e){} $('dlg').close(); toast('Chiave salvata'); }
+  else toast('Incolla prima la chiave');
+};
+$('clrFacts').onclick = () => { facts = []; store.set('j_facts', facts); $('facts').textContent = 'Ancora niente.'; toast('Memoria cancellata'); };
+$('clrChat').onclick = () => {
+  chat = []; hist = []; store.set('j_chat', chat); store.set('j_hist', hist);
+  $('log').innerHTML = '<div id="empty">Come posso aiutarti?</div>';
+  $('dlg').close();
+  toast('Conversazione cancellata');
+};
+
+/* ---------- eventi ---------- */
+$('voice').onclick = () => {
+  voice = !voice; store.set('j_voice', voice); setVoiceIcon();
+  if(!voice) speechSynthesis.cancel();
+  toast(voice ? 'Risposte a voce attivate' : 'Risposte a voce disattivate');
+};
+$('mic').onclick = toggle;
+function submit(){
+  const v = $('txt').value.trim();
+  if(!v){ toast('Scrivi prima un messaggio'); return; }
+  $('txt').value = '';
+  log('u', v);
+  run(v.replace(new RegExp('^\\s*' + WAKE.source + '[\\s,.:!?]*', 'i'), ''));
+}
+$('send').onclick = submit;
+$('txt').addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); submit(); } });
+setState();
+</script>
+</body>
+</html>
